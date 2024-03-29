@@ -49,6 +49,13 @@ def get_args():
         default=False
     )
     parser.add_argument(
+        "-csv",
+        metavar="",
+        help="(bool) Save correlation matrix to csv file.  Default: False.",
+        type=bool,
+        default=False
+    )
+    parser.add_argument(
         "--interval",
         metavar="",
         help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
@@ -68,8 +75,8 @@ def get_args():
         default=f"{DIR}/spot/monthly/klines"
     )
 
-    return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01"])
-    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "-start", "2022-04-01", "-end", "2023-04-01"])
+    return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01", "-csv", "True"])
+    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True"])
 
 
 
@@ -152,8 +159,8 @@ def log_returns_corr(price_df, interval=1):
     log_r_df = np.log(price_df) - np.log(price_df.shift(interval))
     corr_matrix = log_r_df.corr(method="pearson")
 
-    corr_matrix.dropna(axis=0, how="all")
-    corr_matrix.dropna(axis=1, how="all")
+    corr_matrix = corr_matrix.dropna(axis=0, how="all")
+    corr_matrix = corr_matrix.dropna(axis=1, how="all")
 
     return corr_matrix
 
@@ -174,19 +181,27 @@ def main():
     df_dict = to_dfs(args.assets, args.data_dir, args.granularity)
     price_df = crop_period(combine_by_component(df_dict), args.start, args.end)
     corr_matrix = log_returns_corr(price_df, args.interval)
+    
+    print(corr_matrix)
 
     if args.plot and args.assets[0] != "all":
         plot_heatmap(corr_matrix)
 
-    print(price_df)
-    print(corr_matrix)
+    if args.csv:
+        corr_matrix.to_csv(f"{DIR}/correlations-all.csv", compression=None)
+        print(f"saved csv to {DIR}/correlations-all.csv")
+        
+
+    
    
 
 
     
-
-
-
-
 if __name__ == "__main__":
     main()
+
+
+
+
+# TODO: implement async file io
+# trim down "all" corr matrix to just assets with highest correlations in their rows/cols

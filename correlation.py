@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from datetime import datetime as dt
+# from datetime import datetime as dt
+from datetime import date as d
 from statsmodels import tsa
 from statsmodels.tsa.vector_ar import vecm
-from datetime import datetime as dt
 import time
 import argparse
 import os
@@ -42,9 +42,16 @@ def get_args():
         required=True
     )
     parser.add_argument(
+        "-plot",
+        metavar="",
+        help="(bool) Choose whether to plot correlation matrix heatmap.  Default: False.  Always False if {all} argument provided for assets.",
+        type=bool,
+        default=False
+    )
+    parser.add_argument(
         "--interval",
         metavar="",
-        help="Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
+        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
         type=int,
         default=1
     )
@@ -62,8 +69,7 @@ def get_args():
     )
 
     return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01"])
-    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATIC", "-start", "2020-09-01", "-end", "2021-09-01"])
-    # , "--granularity", "1h"
+    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "-start", "2022-04-01", "-end", "2023-04-01"])
 
 
 
@@ -101,10 +107,26 @@ def to_dfs(assets_arg, dir, granularity):
 
         if len(data_lists[asset]) == 0:
             continue
-        
+
         dfs[asset] = pd.concat(data_lists[asset], ignore_index=True)
 
     return dfs
+
+
+
+
+def crop_period(price_df_arg, start, end):
+    timestamps = np.array(price_df_arg.index)
+
+    dates = []
+    for timestamp in timestamps:
+        date = d.fromtimestamp(timestamp / 1000)
+        dates.append(date.isoformat())
+
+    price_df = price_df_arg
+    price_df.index = dates
+
+    return price_df[start:end]
 
 
 
@@ -116,7 +138,7 @@ def combine_by_component(df_dict, component="close", index="close_time"):
         s = df_dict[asset][component]
         if index != None:
             s.index = df_dict[asset][index]
-            
+
         series_dict[asset] = s
 
     df = pd.DataFrame(series_dict)
@@ -128,8 +150,19 @@ def combine_by_component(df_dict, component="close", index="close_time"):
 # takes trading pair price dataframes and interval and returns correlation matrix of log returns
 def log_returns_corr(price_df, interval=1):
     log_r_df = np.log(price_df) - np.log(price_df.shift(interval))
+    corr_matrix = log_r_df.corr(method="pearson")
 
-    return log_r_df.corr(method="pearson")
+    corr_matrix.dropna(axis=0, how="all")
+    corr_matrix.dropna(axis=1, how="all")
+
+    return corr_matrix
+
+
+
+
+def plot_heatmap(corr_matrix):
+    sns.heatmap(corr_matrix, annot=True, cmap="viridis")
+    plt.show()
 
 
 
@@ -139,14 +172,15 @@ def main():
     args = get_args() 
     
     df_dict = to_dfs(args.assets, args.data_dir, args.granularity)
-    # print(df_dict)
-    price_df = combine_by_component(df_dict, index=None)
+    price_df = crop_period(combine_by_component(df_dict), args.start, args.end)
     corr_matrix = log_returns_corr(price_df, args.interval)
-    
+
+    if args.plot and args.assets[0] != "all":
+        plot_heatmap(corr_matrix)
+
     print(price_df)
-    # print(price_df.loc[1::1,:].reset_index(drop=True) - price_df.loc[::1,:].reset_index(drop=True))
-    print(price_df - price_df.shift(1))
     print(corr_matrix)
+   
 
 
     

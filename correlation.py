@@ -14,7 +14,7 @@ import os
 
 
 
-DIR = os.getcwd().replace("\\", "/")
+DIR = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
 HEADER = ["open_time", "open", "high", "low", "close", "volume", "close_time", "quote_volume", "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
 
 
@@ -26,7 +26,7 @@ def get_args():
     parser.add_argument(
         "assets",
         metavar="assets",
-        help="USDT denominated trading pairs.  e.g. BTCUSDT ETHUSDT",
+        help="USDT denominated trading pairs.  e.g. BTCUSDT ETHUSDT (if {all} is provided as the first argument all assets will be used)",
         nargs="+"
     )
     parser.add_argument(
@@ -61,7 +61,8 @@ def get_args():
         default=f"{DIR}/spot/monthly/klines"
     )
 
-    return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATIC", "-start", "2020-09-01", "-end", "2021-09-01"])
+    return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01"])
+    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATIC", "-start", "2020-09-01", "-end", "2021-09-01"])
     # , "--granularity", "1h"
 
 
@@ -98,6 +99,9 @@ def to_dfs(assets_arg, dir, granularity):
                     df = pd.read_csv(f"{path}/{file}")
                     data_lists[asset].append(df)
 
+        if len(data_lists[asset]) == 0:
+            continue
+        
         dfs[asset] = pd.concat(data_lists[asset], ignore_index=True)
 
     return dfs
@@ -131,6 +135,7 @@ def log_returns_corr(price_df, interval=1):
 
 
 def main():
+    print(DIR)
     args = get_args() 
     
     df_dict = to_dfs(args.assets, args.data_dir, args.granularity)

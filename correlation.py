@@ -44,9 +44,16 @@ def get_args():
     parser.add_argument(
         "-plot",
         metavar="",
-        help="(bool) Choose whether to plot correlation matrix heatmap.  Default: False.  Always False if {all} argument provided for assets.",
+        help="(bool) Choose whether to plot correlation matrix heatmap of top n assets.  Default: False.",
         type=bool,
         default=False
+    )
+    parser.add_argument(
+        "--n",
+        metavar="",
+        help="(int) Number of assets to plot in correlation matrix heatmap.  Default: 10",
+        type=int,
+        default=10
     )
     parser.add_argument(
         "-csv_m",
@@ -129,7 +136,7 @@ def to_dfs(assets_arg, dir, granularity):
 
 
 
-
+# crops component df and crops to desired time frame
 def crop_period(price_df_arg, start, end):
     timestamps = np.array(price_df_arg.index)
 
@@ -145,7 +152,7 @@ def crop_period(price_df_arg, start, end):
 
 
 
-
+# takes dictionary of dataframes (converted from csvs) and constructs one dataframe according to one column of the csvs
 def combine_by_component(df_dict, component="close", index="close_time"):
     series_dict = {}
     # converting to dictionary of series in case dates are different between datasets (eg missing dates)
@@ -174,23 +181,39 @@ def log_returns_corr(price_df, interval=1):
 
 
 
-
+# takes correlation matrix and returns series of highest correlations indexed by correlated asset pairs
 def corr_series(corr_matrix):
     corr_pair_list = []
     rho_list = []
-    indices = corr_matrix.index
+    # indices = corr_matrix.index
     columns = corr_matrix.columns
 
     start_col = 0
     for index, row in corr_matrix.iterrows():
-        pairs = [f"{indices[index]}-{column}" for column in columns[start_col:]]
+        print(index)
+        print(row)
+        pairs = [f"{index}-{column}" for column in columns[start_col:]]
+        
         corr_pair_list.extend(pairs)
-
         rho_list.extend(row.iloc[start_col:])
+
+        start_col += 1
 
     corr_series = pd.Series(data=rho_list, index=corr_pair_list).sort_values(ascending=False)
 
     return corr_series
+
+
+
+# returns list of top n assets with highest correlations
+def top_assets(corr_series, n=10):
+    indices = corr_series[:n/2]
+    assets = []
+
+    for index in indices:
+        assets.extend(indices[index].split("-"))
+
+    return assets
 
 
 
@@ -202,29 +225,45 @@ def plot_heatmap(corr_matrix):
 
 
 
+class Correlation:
+    def __init__(self, assets, data_dir, granularity, start, end, interval, n):
+        self.df_dict = to_dfs(assets, data_dir, granularity)
+        self.price_df = crop_period(combine_by_component(self.df_dict), start, end)
+        self.corr_matrix = log_returns_corr(self.price_df, interval)
+        self.corr_s = corr_series(self.corr_matrix)
+        self.top_assets = top_assets(self.corr_s, n)
+        
+        sub_df_dict = to_dfs(self.top_assets, data_dir, granularity)
+        sub_price_df = crop_period(combine_by_component(sub_df_dict), start, end)
+        self.corr_submatrix = log_returns_corr(sub_price_df, interval)
+
+
+
+
 def main():
     print(DIR)
     args = get_args() 
-    
-    df_dict = to_dfs(args.assets, args.data_dir, args.granularity)
-    price_df = crop_period(combine_by_component(df_dict), args.start, args.end)
-    corr_matrix = log_returns_corr(price_df, args.interval)
-    
-    print(corr_matrix)
 
-    df = corr_matrix.copy()
-    print(np.fill_diagonal(df.values, 0))
-    print(df.idxmax(axis="columns"))
+    corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n)
+    
+    print(corr.corr_matrix)
+
 
     if args.plot and args.assets[0] != "all":
-        plot_heatmap(corr_matrix)
+        plot_heatmap(corr.corr_submatrix)
 
-    if args.csv:
-        corr_matrix.to_csv(f"{DIR}/out/correlations-all-{time.time()}.csv", compression=None)
-        print(f"saved csv to {DIR}/out/correlations-all-{time.time()}.csv")
-        
+
+    if args.csv_m:
+        corr.corr_matrix.to_csv(f"{DIR}/out/corr-matrix-{time.time()}.csv", compression=None)
+        print(f"saved csv to {DIR}/out/corr-matrix-{time.time()}.csv")
+
+    if args.csv_l:
+        corr.corr_s.to_csv(f"{DIR}/out/corr-list-{time.time()}.csv", compression=None)
+        print(f"saved csv to {DIR}/out/corr-list-{time.time()}.csv")
     
    
+
+
 if __name__ == "__main__":
     main()
 

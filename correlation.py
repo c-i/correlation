@@ -108,10 +108,8 @@ def to_dfs(assets_arg, dir, granularity):
 
     for asset in assets:
         path = f"{dir}/{asset}/{granularity}"
-        try:
-            csv_files = os.listdir(path)
-        except FileNotFoundError:
-            raise
+
+        csv_files = os.listdir(path)
 
         data_lists[asset] = []
 
@@ -135,34 +133,35 @@ def to_dfs(assets_arg, dir, granularity):
     return dfs
 
 
-
-# crops component df and crops to desired time frame
-def crop_period(price_df_arg, start, end):
-    timestamps = np.array(price_df_arg.index)
-
-    dates = []
-    for timestamp in timestamps:
-        date = d.fromtimestamp(timestamp / 1000)
-        dates.append(date.isoformat())
-
-    price_df = price_df_arg
-    price_df.index = dates
-
-    return price_df[start:end]
-
-
-
-# takes dictionary of dataframes (converted from csvs) and constructs one dataframe according to one column of the csvs
-def combine_by_component(df_dict, component="close", index="close_time"):
+# takes dictionary of dataframes (converted from csvs) and constructs one dataframe according to one column of the csvs and crops to desired timeframe
+# excludes data for assets that dont exist for the entire time frame
+def combine_by_component(df_dict, start, end, component="close", index="close_time",):
     series_dict = {}
     # converting to dictionary of series in case dates are different between datasets (eg missing dates)
     for asset in df_dict:
         s = df_dict[asset][component]
-        if index != None:
-            s.index = df_dict[asset][index]
+        timestamps = df_dict[asset][index]
 
-        series_dict[asset] = s
+        dates = []
+        for timestamp in timestamps:
+            date = d.fromtimestamp(timestamp / 1000)
+            dates.append(date.isoformat())
 
+        i = 1
+        duplicate = False
+        while i < len(dates):
+            if dates[i] == dates[i - 1]:
+                print(dates[i])
+                duplicate = True
+        if duplicate:
+            continue
+
+        if start in dates and end in dates:
+            s.index = dates
+
+            series_dict[asset] = s[start:end]
+    
+    # print(series_dict)
     df = pd.DataFrame(series_dict)
 
     return df
@@ -226,13 +225,13 @@ def plot_heatmap(corr_matrix):
 class Correlation:
     def __init__(self, assets, data_dir, granularity, start, end, interval, n):
         self.df_dict = to_dfs(assets, data_dir, granularity)
-        self.price_df = crop_period(combine_by_component(self.df_dict), start, end)
+        self.price_df = combine_by_component(self.df_dict, start, end)
         self.corr_matrix = log_returns_corr(self.price_df, interval)
         self.corr_s = corr_series(self.corr_matrix)
         self.top_assets = top_assets(self.corr_s, n)
         
         sub_df_dict = to_dfs(self.top_assets, data_dir, granularity)
-        sub_price_df = crop_period(combine_by_component(sub_df_dict), start, end)
+        sub_price_df = combine_by_component(sub_df_dict, start, end)
         self.corr_submatrix = log_returns_corr(sub_price_df, interval)
 
 
@@ -244,8 +243,7 @@ def main():
 
     corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n)
     
-    print(corr.corr_matrix)
-
+    print(corr.corr_submatrix)
 
     if args.plot:
         plot_heatmap(corr.corr_submatrix)
@@ -269,4 +267,4 @@ if __name__ == "__main__":
 
 
 # TODO: implement async file io
-# trim down "all" corr matrix to just assets with highest correlations in their rows/cols
+# FIX: corr_submatrix, cropping period correctly so that assets without data in period are removed

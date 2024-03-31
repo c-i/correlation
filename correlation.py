@@ -89,9 +89,9 @@ def get_args():
         default=f"{DIR}/spot/monthly/klines"
     )
 
-    # return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01"])
+    return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01", "-csv_l", "True", "-plot", "True"])
     # , "-csv", "True"
-    return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True"])
+    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True"])
 
 
 
@@ -188,10 +188,8 @@ def corr_series(corr_matrix):
     # indices = corr_matrix.index
     columns = corr_matrix.columns
 
-    start_col = 0
+    start_col = 1
     for index, row in corr_matrix.iterrows():
-        print(index)
-        print(row)
         pairs = [f"{index}-{column}" for column in columns[start_col:]]
         
         corr_pair_list.extend(pairs)
@@ -207,11 +205,11 @@ def corr_series(corr_matrix):
 
 # returns list of top n assets with highest correlations
 def top_assets(corr_series, n=10):
-    indices = corr_series[:n/2]
+    indices = corr_series[:int(n/2)].index
     assets = []
 
     for index in indices:
-        assets.extend(indices[index].split("-"))
+        assets.extend(index.split("-"))
 
     return assets
 
@@ -249,17 +247,17 @@ def main():
     print(corr.corr_matrix)
 
 
-    if args.plot and args.assets[0] != "all":
+    if args.plot:
         plot_heatmap(corr.corr_submatrix)
 
 
     if args.csv_m:
-        corr.corr_matrix.to_csv(f"{DIR}/out/corr-matrix-{time.time()}.csv", compression=None)
-        print(f"saved csv to {DIR}/out/corr-matrix-{time.time()}.csv")
+        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{time.time()}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-matrix-{time.time()}.csv")
 
     if args.csv_l:
-        corr.corr_s.to_csv(f"{DIR}/out/corr-list-{time.time()}.csv", compression=None)
-        print(f"saved csv to {DIR}/out/corr-list-{time.time()}.csv")
+        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{time.time()}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-list-{time.time()}.csv")
     
    
 

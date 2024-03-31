@@ -139,6 +139,7 @@ def combine_by_component(df_dict, start, end, component="close", index="close_ti
             date = d.fromtimestamp(timestamp / 1000)
             dates.append(date.isoformat())
 
+        
         if start in dates and end in dates:
             # catch data with duplicate dates, usually indicative of delistings:
             i = 1
@@ -154,8 +155,8 @@ def combine_by_component(df_dict, start, end, component="close", index="close_ti
             s.index = dates
 
             series_dict[asset] = s[start:end]
+            # print("Added: ", asset)
     
-    # print(series_dict)
     df = pd.DataFrame(series_dict)
 
     return df
@@ -203,7 +204,7 @@ def top_assets(corr_series, n=10):
 
     for index in indices:
         assets.extend(index.split("-"))
-
+    
     return assets
 
 
@@ -235,7 +236,8 @@ def main():
     args = get_args() 
 
     corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n)
-    
+
+
     print(corr.corr_submatrix)
 
     if args.csv_m:

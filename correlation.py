@@ -75,8 +75,9 @@ def get_args():
         default=f"{DIR}/spot/monthly/klines"
     )
 
-    return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01", "-csv", "True"])
-    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True"])
+    # return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01"])
+    # , "-csv", "True"
+    return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True"])
 
 
 
@@ -167,6 +168,26 @@ def log_returns_corr(price_df, interval=1):
 
 
 
+def corr_series(corr_matrix):
+    corr_pair_list = []
+    rho_list = []
+    indices = corr_matrix.index
+    columns = corr_matrix.columns
+
+    start_col = 0
+    for index, row in corr_matrix.iterrows():
+        pairs = [f"{indices[index]}-{column}" for column in columns[start_col:]]
+        corr_pair_list.extend(pairs)
+
+        rho_list.extend(row.iloc[start_col:])
+
+    corr_series = pd.Series(data=rho_list, index=corr_pair_list).sort_values(ascending=False)
+
+    return corr_series
+
+
+
+
 def plot_heatmap(corr_matrix):
     sns.heatmap(corr_matrix, annot=True, cmap="viridis")
     plt.show()
@@ -184,19 +205,19 @@ def main():
     
     print(corr_matrix)
 
+    df = corr_matrix.copy()
+    print(np.fill_diagonal(df.values, 0))
+    print(df.idxmax(axis="columns"))
+
     if args.plot and args.assets[0] != "all":
         plot_heatmap(corr_matrix)
 
     if args.csv:
-        corr_matrix.to_csv(f"{DIR}/correlations-all.csv", compression=None)
-        print(f"saved csv to {DIR}/correlations-all.csv")
+        corr_matrix.to_csv(f"{DIR}/out/correlations-all.csv", compression=None)
+        print(f"saved csv to {DIR}/out/correlations-all.csv")
         
-
     
    
-
-
-    
 if __name__ == "__main__":
     main()
 

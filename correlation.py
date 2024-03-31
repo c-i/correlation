@@ -31,67 +31,59 @@ def get_args():
     )
     parser.add_argument(
         "-start",
-        metavar="",
         help="(required) Start date in iso format.  e.g. 2020-12-30",
         required=True
     )
     parser.add_argument(
         "-end",
-        metavar="",
         help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
         required=True
     )
     parser.add_argument(
         "-plot",
-        metavar="",
         help="(bool) Choose whether to plot correlation matrix heatmap of top n assets.  Default: False.",
         type=bool,
         default=False
     )
     parser.add_argument(
         "--n",
-        metavar="",
         help="(int) Number of assets to plot in correlation matrix heatmap.  Default: 10",
         type=int,
         default=10
     )
     parser.add_argument(
         "-csv_m",
-        metavar="",
         help="(bool) Save correlation matrix to csv file.  Default: False.",
         type=bool,
         default=False
     )
     parser.add_argument(
         "-csv_l",
-        metavar="",
         help="(bool) Save list of asset pair correlations sorted from greatest to least to csv file.  Default: False",
         type=bool,
         default=False
     )
     parser.add_argument(
         "--interval",
-        metavar="",
         help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
         type=int,
         default=1
     )
     parser.add_argument(
         "--granularity",
-        metavar="",
         help="Granularity of k-line data.  e.g. 1d (default: 1d)",
         default="1d"
     )
     parser.add_argument(
         "--data_dir",
-        metavar="",
         help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
         default=f"{DIR}/spot/monthly/klines"
     )
 
-    return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01", "-csv_l", "True", "-plot", "True"])
+    return parser.parse_args()
+    # return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01", "-csv_l", "True", "-plot", "True"])
     # , "-csv", "True"
-    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True"])
+    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True", "-csv_l", "True", "-csv_m", "True"])
 
 
 
@@ -99,13 +91,13 @@ def get_args():
 def to_dfs(assets_arg, dir, granularity):
     data_lists = {}
     dfs = {}
-
+    
     if assets_arg[0] == "all":
         assets = os.listdir(dir)
     else:
         assets = assets_arg
         
-
+    print("Reading CSVs")
     for asset in assets:
         path = f"{dir}/{asset}/{granularity}"
 
@@ -131,12 +123,6 @@ def to_dfs(assets_arg, dir, granularity):
         dfs[asset] = pd.concat(data_lists[asset], ignore_index=True)
 
     return dfs
-
-
-
-
-async def process_file():
-    pass
 
 
 # takes dictionary of dataframes (converted from csvs) and constructs one dataframe according to one column of the csvs and crops to desired timeframe
@@ -246,21 +232,19 @@ class Correlation:
 
 
 def main():
-    print(DIR)
     args = get_args() 
 
     corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n)
     
     print(corr.corr_submatrix)
 
-    now = dt.now().isoformat(timespec="seconds").replace(":", "-")
     if args.csv_m:
-        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{now}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-matrix-{now}.csv")
+        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv")
 
     if args.csv_l:
-        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{now}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-list-{now}.csv")
+        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{args.start}-to-{args.end}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-list-{args.start}-to-{args.end}.csv")
     
     if args.plot:
         plot_heatmap(corr.corr_submatrix)
@@ -272,5 +256,4 @@ if __name__ == "__main__":
 
 
 
-# TODO: implement async file io
-# FIX: corr_submatrix, cropping period correctly so that assets without data in period are removed
+# TODO: implement async file io (way too much effort, pandas read_csv is not asynchronous)

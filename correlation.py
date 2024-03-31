@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-# from datetime import datetime as dt
+from datetime import datetime as dt
 from datetime import date as d
 from statsmodels import tsa
 from statsmodels.tsa.vector_ar import vecm
@@ -133,6 +133,12 @@ def to_dfs(assets_arg, dir, granularity):
     return dfs
 
 
+
+
+async def process_file():
+    pass
+
+
 # takes dictionary of dataframes (converted from csvs) and constructs one dataframe according to one column of the csvs and crops to desired timeframe
 # excludes data for assets that dont exist for the entire time frame
 def combine_by_component(df_dict, start, end, component="close", index="close_time",):
@@ -147,16 +153,18 @@ def combine_by_component(df_dict, start, end, component="close", index="close_ti
             date = d.fromtimestamp(timestamp / 1000)
             dates.append(date.isoformat())
 
-        i = 1
-        duplicate = False
-        while i < len(dates):
-            if dates[i] == dates[i - 1]:
-                print(dates[i])
-                duplicate = True
-        if duplicate:
-            continue
-
         if start in dates and end in dates:
+            # catch data with duplicate dates, usually indicative of delistings:
+            i = 1
+            duplicate = False
+            while i < len(dates):
+                if dates[i] == dates[i - 1]:
+                    print("Duplicate dates, unable to process: ", asset)
+                    duplicate = True
+                i += 1
+            if duplicate:
+                continue
+
             s.index = dates
 
             series_dict[asset] = s[start:end]
@@ -245,19 +253,17 @@ def main():
     
     print(corr.corr_submatrix)
 
-    if args.plot:
-        plot_heatmap(corr.corr_submatrix)
-
-
+    now = dt.now().isoformat(timespec="seconds").replace(":", "-")
     if args.csv_m:
-        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{time.time()}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-matrix-{time.time()}.csv")
+        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{now}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-matrix-{now}.csv")
 
     if args.csv_l:
-        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{time.time()}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-list-{time.time()}.csv")
+        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{now}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-list-{now}.csv")
     
-   
+    if args.plot:
+        plot_heatmap(corr.corr_submatrix)
 
 
 if __name__ == "__main__":

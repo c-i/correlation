@@ -49,9 +49,16 @@ def get_args():
         default=False
     )
     parser.add_argument(
-        "-csv",
+        "-csv_m",
         metavar="",
         help="(bool) Save correlation matrix to csv file.  Default: False.",
+        type=bool,
+        default=False
+    )
+    parser.add_argument(
+        "-csv_l",
+        metavar="",
+        help="(bool) Save list of asset pair correlations sorted from greatest to least to csv file.  Default: False",
         type=bool,
         default=False
     )
@@ -213,8 +220,8 @@ def main():
         plot_heatmap(corr_matrix)
 
     if args.csv:
-        corr_matrix.to_csv(f"{DIR}/out/correlations-all.csv", compression=None)
-        print(f"saved csv to {DIR}/out/correlations-all.csv")
+        corr_matrix.to_csv(f"{DIR}/out/correlations-all-{time.time()}.csv", compression=None)
+        print(f"saved csv to {DIR}/out/correlations-all-{time.time()}.csv")
         
     
    

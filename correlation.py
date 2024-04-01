@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime as dt
 from datetime import date as d
-from statsmodels import tsa
-from statsmodels.tsa.vector_ar import vecm
 import time
 import argparse
 import os
@@ -30,37 +28,37 @@ def get_args():
         nargs="+"
     )
     parser.add_argument(
-        "-start",
+        "--start",
         help="(required) Start date in iso format.  e.g. 2020-12-30",
         required=True
     )
     parser.add_argument(
-        "-end",
+        "--end",
         help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
         required=True
     )
     parser.add_argument(
-        "-plot",
-        help="(bool) Choose whether to plot correlation matrix heatmap of top n assets.  Default: False.",
-        type=bool,
+        "-p",
+        help="(bool) Choose whether to plot correlation matrix heatmap of top n assets.",
+        action="store_true",
         default=False
     )
     parser.add_argument(
-        "--n",
+        "-n",
         help="(int) Number of assets to plot in correlation matrix heatmap.  Default: 10",
         type=int,
         default=10
     )
     parser.add_argument(
-        "-csv_m",
-        help="(bool) Save correlation matrix to csv file.  Default: False.",
-        type=bool,
+        "-m",
+        help="(bool) Save correlation matrix to csv file.",
+        action="store_true",
         default=False
     )
     parser.add_argument(
-        "-csv_l",
-        help="(bool) Save list of asset pair correlations sorted from greatest to least to csv file.  Default: False",
-        type=bool,
+        "-l",
+        help="(bool) Save list of asset pair correlations sorted from greatest to least to csv file.",
+        action="store_true",
         default=False
     )
     parser.add_argument(
@@ -79,11 +77,18 @@ def get_args():
         help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
         default=f"{DIR}/spot/monthly/klines"
     )
+    parser.add_argument(
+        "--component",
+        help="CSV header label used to calculate log returns.  Default: close",
+        default="close"
+    )
+    parser.add_argument(
+        "--index",
+        help="CSV header label used to retrieve timestamps.  Default: close_time",
+        default="close_time"
+    )
 
     return parser.parse_args()
-    # return parser.parse_args(["all", "-start", "2020-09-01", "-end", "2021-09-01", "-csv_l", "True", "-plot", "True"])
-    # , "-csv", "True"
-    # return parser.parse_args(["BTCUSDT", "ETHUSDT", "LINKUSDT", "AAVEUSDT", "MATICUSDT", "AVAXUSDT", "SOLUSDT", "DYDXUSDT", "UNIUSDT", "-start", "2022-04-01", "-end", "2023-04-01", "-plot", "True", "-csv_l", "True", "-csv_m", "True"])
 
 
 
@@ -218,9 +223,9 @@ def plot_heatmap(corr_matrix):
 
 
 class Correlation:
-    def __init__(self, assets, data_dir, granularity, start, end, interval, n):
+    def __init__(self, assets, data_dir, granularity, start, end, interval, n, component, index):
         self.df_dict = to_dfs(assets, data_dir, granularity)
-        self.price_df = combine_by_component(self.df_dict, start, end)
+        self.price_df = combine_by_component(self.df_dict, start, end, component=component, index=index)
         self.corr_matrix = log_returns_corr(self.price_df, interval)
         self.corr_s = corr_series(self.corr_matrix)
         self.top_assets = top_assets(self.corr_s, n)
@@ -235,20 +240,20 @@ class Correlation:
 def main():
     args = get_args() 
 
-    corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n)
+    corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n, args.component, args.index)
 
 
     print(corr.corr_submatrix)
 
-    if args.csv_m:
+    if args.m:
         corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv", compression=None)
         print(f"saved csv to {DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv")
 
-    if args.csv_l:
+    if args.l:
         corr.corr_s.to_csv(f"{DIR}/output/corr-list-{args.start}-to-{args.end}.csv", compression=None)
         print(f"saved csv to {DIR}/output/corr-list-{args.start}-to-{args.end}.csv")
     
-    if args.plot:
+    if args.p:
         plot_heatmap(corr.corr_submatrix)
 
 

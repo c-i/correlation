@@ -6,4 +6,31 @@ Price data: This tool is intended to be used with spot k-line data downloaded us
 
 Output: CSV files are stored in the /output/ directory. 
 
-Usage: python correlaton.py -h
+
+    usage: correlation.py [-h] --start START --end END [-p] [-n N] [-m] [-l] [--interval INTERVAL]
+                          [--granularity GRANULARITY] [--data_dir DATA_DIR] [--component COMPONENT] [--index INDEX]
+                          assets [assets ...]
+    
+    Finds Pearson correlation between log returns of given assets.
+    
+    positional arguments:
+      assets                USDT denominated trading pairs. e.g. BTCUSDT ETHUSDT (if {all} is provided as the first
+                            argument all assets will be used)
+    
+    options:
+      -h, --help            show this help message and exit
+      --start START         (required) Start date in iso format. e.g. 2020-12-30
+      --end END             (required) End date in iso format (up to the end of last month). e.g. 2021-12-30
+      -p                    (bool) Choose whether to plot correlation matrix heatmap of top n assets.
+      -n N                  (int) Number of assets to plot in correlation matrix heatmap. Default: 10
+      -m                    (bool) Save correlation matrix to csv file.
+      -l                    (bool) Save list of asset pair correlations sorted from greatest to least to csv file.
+      --interval INTERVAL   (int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an
+                            interval of 1 with granularity 1d would calculate returns once per day). Default: 1
+      --granularity GRANULARITY
+                            Granularity of k-line data. e.g. 1d (default: 1d)
+      --data_dir DATA_DIR   Directory where k-line data is stored. Default:
+                            C:/Users/chuck/Documents/projects/statarb/correlation/spot/monthly/klines
+      --component COMPONENT
+                            CSV header label used to calculate log returns. Default: close
+      --index INDEX         CSV header label used to retrieve timestamps. Default: close_time

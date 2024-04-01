@@ -245,6 +245,10 @@ def main():
 
     print(corr.corr_submatrix)
 
+
+    if not os.path.isdir("output"):
+        os.mkdir("output")
+
     if args.m:
         corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv", compression=None)
         print(f"saved csv to {DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv")

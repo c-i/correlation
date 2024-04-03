@@ -19,70 +19,73 @@ HEADER = ["open_time", "open", "high", "low", "close", "volume", "close_time", "
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Finds Pearson correlation between log returns of given assets.")
+    parser = argparse.ArgumentParser(description="Statistics tools for finance.")
+    subparser = parser.add_subparsers(dest="stats_tool", required=True, help="stats tool")
 
-    parser.add_argument(
+    correlation_parser = subparser.add_parser("correlation", help="Finds Pearson correlations between log returns of given assets.")
+
+    correlation_parser.add_argument(
         "assets",
         metavar="assets",
         help="USDT denominated trading pairs.  e.g. BTCUSDT ETHUSDT (if {all} is provided as the first argument all assets will be used)",
         nargs="+"
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--start",
         help="(required) Start date in iso format.  e.g. 2020-12-30",
         required=True
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--end",
         help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
         required=True
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "-p",
         help="(bool) Choose whether to plot correlation matrix heatmap of top n assets.",
         action="store_true",
         default=False
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "-n",
         help="(int) Number of assets to plot in correlation matrix heatmap.  Default: 10",
         type=int,
         default=10
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "-m",
         help="(bool) Save correlation matrix to csv file.",
         action="store_true",
         default=False
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "-l",
         help="(bool) Save list of asset pair correlations sorted from greatest to least to csv file.",
         action="store_true",
         default=False
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--interval",
         help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
         type=int,
         default=1
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--granularity",
         help="Granularity of k-line data.  e.g. 1d (default: 1d)",
         default="1d"
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--data_dir",
         help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
         default=f"{DIR}/spot/monthly/klines"
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--component",
         help="CSV header label used to calculate log returns.  Default: close",
         default="close"
     )
-    parser.add_argument(
+    correlation_parser.add_argument(
         "--index",
         help="CSV header label used to retrieve timestamps.  Default: close_time",
         default="close_time"

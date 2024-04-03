@@ -39,33 +39,24 @@ def corr_series(corr_matrix):
 
 
 
-# returns list of top n assets with highest correlations
-def top_assets(corr_series, n=10):
-    indices = corr_series[:int(n/2)].index
-    assets = []
-
-    for index in indices:
-        assets.extend(index.split("-"))
-    
-    return assets
-
-
-
 
 class Correlation:
-    def __init__(self, assets, data_dir, granularity, start, end, interval, n, component, index):
-        self.df_dict = to_dfs(assets, data_dir, granularity)
-        self.price_df = combine_by_component(self.df_dict, start, end, component=component, index=index)
-        self.corr_matrix = log_returns_corr(self.price_df, interval)
+    def __init__(self, price_df, args):
+        self.corr_matrix = log_returns_corr(price_df, args.interval)
         self.corr_s = corr_series(self.corr_matrix)
-        self.top_assets = top_assets(self.corr_s, n)
-        
-        sub_df_dict = to_dfs(self.top_assets, data_dir, granularity)
-        sub_price_df = combine_by_component(sub_df_dict, start, end)
-        self.corr_submatrix = log_returns_corr(sub_price_df, interval)
 
 
-    def plot_heatmap(corr_matrix):
-        sns.heatmap(corr_matrix, annot=True, cmap="viridis")
+    def plot_heatmap(self):
+        sns.heatmap(self.corr_matrix, annot=True, cmap="viridis")
         plt.show()
 
+
+    # returns list of top n assets with highest correlations
+    def top_assets(self, n=10):
+        indices = corr_series[:int(n/2)].index
+        assets = []
+
+        for index in indices:
+            assets.extend(index.split("-"))
+        
+        return assets

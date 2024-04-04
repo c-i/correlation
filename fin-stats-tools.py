@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from statsmodels.tsa.vector_ar import vecm
 from datetime import datetime as dt
 from datetime import date as d
 import time
@@ -90,6 +91,47 @@ def get_args():
         help="CSV header label used to retrieve timestamps.  Default: close_time",
         default="close_time"
     )
+
+
+    coint_parser = subparser.add_parser("cointegration", help="Performs Johansen cointegration test on price series of given assets.")
+    
+    coint_parser.add_argument(
+        "assets",
+        metavar="assets",
+        help="Assets to perform the Johansen test on.",
+        nargs="+"
+    )
+    coint_parser.add_argument(
+        "--start",
+        help="(required) Start date in iso format.  e.g. 2020-12-30",
+        required=True
+    )
+    coint_parser.add_argument(
+        "--end",
+        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
+        required=True
+    )
+    coint_parser.add_argument(
+        "--granularity",
+        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
+        default="1d"
+    )
+    coint_parser.add_argument(
+        "--data_dir",
+        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
+        default=f"{DIR}/spot/monthly/klines"
+    )
+    coint_parser.add_argument(
+        "--component",
+        help="CSV header label used to calculate log returns.  Default: close",
+        default="close"
+    )
+    coint_parser.add_argument(
+        "--index",
+        help="CSV header label used to retrieve timestamps.  Default: close_time",
+        default="close_time"
+    )
+    
 
     return parser.parse_args()
 
@@ -218,13 +260,6 @@ def top_assets(corr_series, n=10):
 
 
 
-def plot_heatmap(corr_matrix):
-    sns.heatmap(corr_matrix, annot=True, cmap="viridis")
-    plt.show()
-
-
-
-
 class Correlation:
     def __init__(self, assets, data_dir, granularity, start, end, interval, n, component, index):
         self.df_dict = to_dfs(assets, data_dir, granularity)
@@ -237,17 +272,18 @@ class Correlation:
         sub_price_df = combine_by_component(sub_df_dict, start, end)
         self.corr_submatrix = log_returns_corr(sub_price_df, interval)
 
+    
+    def plot_heatmap(self):
+        sns.heatmap(self.corr_matrix, annot=True, cmap="viridis")
+        plt.show()
 
 
 
-def main():
-    args = get_args() 
 
+def correlation(args):
     corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n, args.component, args.index)
 
-
     print(corr.corr_submatrix)
-
 
     if not os.path.isdir("output"):
         os.mkdir("output")
@@ -261,7 +297,33 @@ def main():
         print(f"saved csv to {DIR}/output/corr-list-{args.start}-to-{args.end}.csv")
     
     if args.p:
-        plot_heatmap(corr.corr_submatrix)
+        corr.plot_heatmap()
+
+
+
+# fix
+def cointegration(args):
+    df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
+    price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+
+    lag_diff = 1
+    result = vecm.coint_johansen(price_df, 0, lag_diff)
+
+    # test < trace  ==> reject null?
+    print("\ntrace: \n", result.trace_stat, "\n\ntrace critical values: \n", result.trace_stat_crit_vals, "\n\neigenvalues: \n", result.max_eig_stat, "\n\neigenvalue crit vals: \n", result.max_eig_stat_crit_vals)
+
+
+
+
+def main():
+    args = get_args() 
+
+    if args.stats_tool == "correlation":
+        correlation(args)
+
+    if args.stats_tool == "cointegration":
+        cointegration(args)
+
 
 
 if __name__ == "__main__":

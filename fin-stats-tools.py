@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.tsa.vector_ar import vecm
+from statsmodels.tsa import stattools
 from datetime import datetime as dt
 from datetime import date as d
 import time
@@ -137,6 +138,46 @@ def get_args():
         help="CSV header label used to retrieve timestamps.  Default: close_time",
         default="close_time"
     )
+
+
+    adf_parser = subparser.add_parser("adf", help="Performs augmented Dickey-Fuller test on given asset price series.")
+
+    adf_parser.add_argument(
+        "asset",
+        metavar="asset",
+        help="Asset to perform the augmented Dickey-Fuller test on.",
+        nargs=1
+    )
+    adf_parser.add_argument(
+        "--start",
+        help="(required) Start date in iso format.  e.g. 2020-12-30",
+        required=True
+    )
+    adf_parser.add_argument(
+        "--end",
+        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
+        required=True
+    )
+    adf_parser.add_argument(
+        "--granularity",
+        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
+        default="1d"
+    )
+    adf_parser.add_argument(
+        "--data_dir",
+        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
+        default=f"{DIR}/spot/monthly/klines"
+    )
+    adf_parser.add_argument(
+        "--component",
+        help="CSV header label used to calculate log returns.  Default: close",
+        default="close"
+    )
+    adf_parser.add_argument(
+        "--index",
+        help="CSV header label used to retrieve timestamps.  Default: close_time",
+        default="close_time"
+    )
     
 
     return parser.parse_args()
@@ -153,7 +194,7 @@ def to_dfs(assets_arg, dir, granularity):
     else:
         assets = assets_arg
         
-    print("Reading CSVs")
+    print("Reading CSVs\n\n")
     for asset in assets:
         path = f"{dir}/{asset}/{granularity}"
 
@@ -321,14 +362,28 @@ def cointegration(args):
 
     results_df = pd.DataFrame(data = {"trace_stat": result.trace_stat, "trace_crit_90%": trace_arr[0], "trace_crit_95%": trace_arr[1], "trace_crit_99%": trace_arr[2], "max_eig_stat": result.max_eig_stat, "max_eig_90%": eig_arr[0], "max_eig_95%": eig_arr[1], "max_eig_99%": eig_arr[2]})
 
-    # print("\n\nJohansen test:")
-    print("\nlagged differences: ", lag_diff, "\n")
+    # print("Johansen test:")
+    print("lagged differences: ", lag_diff, "\n")
 
     # print("trace: \n", result.trace_stat, "\n\ntrace critical values: \n", result.trace_stat_crit_vals, "\n\neigenvalues: \n", result.max_eig_stat, "\n\neigenvalue crit vals: \n", result.max_eig_stat_crit_vals)
     # reject null if test > crit 
     print(results_df)
 
 
+
+
+def adf(args):
+    df_dict = to_dfs(args.asset, dir=args.data_dir, granularity=args.granularity)
+    price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+
+    result = stattools.adfuller(price_df, maxlag=None)
+
+    print("Augmented Dickey-Fuller: ", result[0])
+    print("critical values: ", result[4])
+    print("p-value: ", result[1])
+    print("lag order: ", result[2])
+    print("observations: ", result[3])
+    
 
 
 
@@ -341,6 +396,8 @@ def main():
     if args.stats_tool == "cointegration":
         cointegration(args)
 
+    if args.stats_tool == "adf":
+        adf(args)
 
 
 if __name__ == "__main__":

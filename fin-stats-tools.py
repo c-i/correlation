@@ -10,12 +10,14 @@ from datetime import date as d
 import time
 import argparse
 import os
+from config import ABS_PATH_TO_CSV, HEADER
 
 
 
 
 DIR = os.path.dirname(os.path.abspath(__file__)).replace("\\", "/")
-HEADER = ["open_time", "open", "high", "low", "close", "volume", "close_time", "quote_volume", "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
+if HEADER is None:
+    HEADER = ["open_time", "open", "high", "low", "close", "volume", "close_time", "quote_volume", "count", "taker_buy_volume", "taker_buy_quote_volume", "ignore"]
 
 
 
@@ -196,7 +198,10 @@ def to_dfs(assets_arg, dir, granularity):
         
     print("Reading CSVs\n\n")
     for asset in assets:
-        path = f"{dir}/{asset}/{granularity}"
+        if ABS_PATH_TO_CSV is None:
+            path = f"{dir}/{asset}/{granularity}"
+        else:
+            path = ABS_PATH_TO_CSV
 
         csv_files = os.listdir(path)
 

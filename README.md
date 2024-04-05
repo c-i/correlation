@@ -2,7 +2,9 @@ CLI tool for performing various statistical tests on financial data.
 
 Requirements: numpy, pandas, matplotlib, seaborn, statsmodels, python >=3.10
 
-Price data: This tool is intended to be used with spot k-line data downloaded using the stas-prokopiev/binance_historical_data python module.  This module saves spot data to the directory /spot/.  /spot/ should be placed in the same directory as correlation.py.  My binance-data-get CLI wrapper for the binance-historical-data module makes it easy to download all Binance k-line data at once.  You may want to remove all non-token contract data such as UP and DOWN contracts before looking for correlations between all assets.  Modifying the tool to be compatible with other exchanges or non-k-line data is quite trivial: just modify the directory of where the data CSVs are located and modify the HEADERS constant to match the CSV headers of the new data.
+Price data: This tool is intended to be used with spot k-line data downloaded using the stas-prokopiev/binance_historical_data python module.  This module saves spot data to the directory /spot/.  /spot/ should be placed in the same directory as correlation.py.  My binance-data-get CLI wrapper for the binance-historical-data module makes it easy to download all Binance k-line data at once.  You may want to remove all non-token contract data such as UP and DOWN contracts before looking for correlations between all assets.
+
+Config: Data other than Binance k-line data can be used by modifying the config.py file.
 
 Output: CSV files are stored in the /output/ directory. 
 

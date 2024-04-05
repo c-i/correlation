@@ -112,6 +112,12 @@ def get_args():
         required=True
     )
     coint_parser.add_argument(
+        "-l",
+        help="Number of lagged differences.  Default: 1",
+        type=int,
+        default=1
+    )
+    coint_parser.add_argument(
         "--granularity",
         help="Granularity of k-line data.  e.g. 1d (default: 1d)",
         default="1d"
@@ -301,16 +307,27 @@ def correlation(args):
 
 
 
-# fix
+
 def cointegration(args):
     df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
 
-    lag_diff = 1
+    lag_diff = args.l
     result = vecm.coint_johansen(price_df, 0, lag_diff)
 
-    # test < trace  ==> reject null?
-    print("\ntrace: \n", result.trace_stat, "\n\ntrace critical values: \n", result.trace_stat_crit_vals, "\n\neigenvalues: \n", result.max_eig_stat, "\n\neigenvalue crit vals: \n", result.max_eig_stat_crit_vals)
+    trace_arr = np.array(result.trace_stat_crit_vals).T
+    eig_arr = np.array(result.max_eig_stat_crit_vals).T
+    
+
+    results_df = pd.DataFrame(data = {"trace_stat": result.trace_stat, "trace_crit_90%": trace_arr[0], "trace_crit_95%": trace_arr[1], "trace_crit_99%": trace_arr[2], "max_eig_stat": result.max_eig_stat, "max_eig_90%": eig_arr[0], "max_eig_95%": eig_arr[1], "max_eig_99%": eig_arr[2]})
+
+    # print("\n\nJohansen test:")
+    print("\nlagged differences: ", lag_diff, "\n")
+
+    # print("trace: \n", result.trace_stat, "\n\ntrace critical values: \n", result.trace_stat_crit_vals, "\n\neigenvalues: \n", result.max_eig_stat, "\n\neigenvalue crit vals: \n", result.max_eig_stat_crit_vals)
+    # reject null if test > crit 
+    print(results_df)
+
 
 
 

@@ -69,6 +69,12 @@ def get_args():
         default=False
     )
     correlation_parser.add_argument(
+        "--mean_norm",
+        help="(bool) Use mean normalisation on returns instead of log.",
+        action="store_true",
+        default=False
+    )
+    correlation_parser.add_argument(
         "--interval",
         help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
         type=int,
@@ -265,10 +271,21 @@ def combine_by_component(df_dict, start, end, component="close", index="close_ti
 
 
 
-# takes trading pair price dataframes and interval and returns correlation matrix of log returns
-def log_returns_corr(price_df, interval=1):
-    log_r_df = np.log(price_df) - np.log(price_df.shift(interval))
-    corr_matrix = log_r_df.corr(method="pearson")
+# per sample x: (x - mean(x)) / std(x)
+def mean_normalise(df):
+    normalised_df = (df - df.mean()) /df.std()
+    return normalised_df
+
+
+
+# takes trading pair price dataframes and interval and returns correlation matrix of log returns (or of mean normalised returns if --mean_norm arg is passed)
+def returns_corr(price_df, interval=1, mean_norm=False):
+    if mean_norm:
+        returns = price_df - price_df.shift(interval)
+        norm_r_df = mean_normalise(returns)
+    else:
+        norm_r_df = np.log(price_df) - np.log(price_df.shift(interval))
+    corr_matrix = norm_r_df.corr(method="pearson")
 
     corr_matrix = corr_matrix.dropna(axis=0, how="all")
     corr_matrix = corr_matrix.dropna(axis=1, how="all")
@@ -313,27 +330,27 @@ def top_assets(corr_series, n=10):
 
 
 class Correlation:
-    def __init__(self, assets, data_dir, granularity, start, end, interval, n, component, index):
+    def __init__(self, assets, data_dir, granularity, start, end, interval, n, component, index, mean_norm):
         self.df_dict = to_dfs(assets, data_dir, granularity)
         self.price_df = combine_by_component(self.df_dict, start, end, component=component, index=index)
-        self.corr_matrix = log_returns_corr(self.price_df, interval)
+        self.corr_matrix = returns_corr(self.price_df, interval, mean_norm)
         self.corr_s = corr_series(self.corr_matrix)
         self.top_assets = top_assets(self.corr_s, n)
         
         sub_df_dict = to_dfs(self.top_assets, data_dir, granularity)
         sub_price_df = combine_by_component(sub_df_dict, start, end)
-        self.corr_submatrix = log_returns_corr(sub_price_df, interval)
+        self.corr_submatrix = returns_corr(sub_price_df, interval, mean_norm)
 
     
     def plot_heatmap(self):
-        sns.heatmap(self.corr_matrix, annot=True, cmap="viridis")
+        sns.heatmap(self.corr_submatrix, annot=True, cmap="viridis")
         plt.show()
 
 
 
 
 def correlation(args):
-    corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n, args.component, args.index)
+    corr = Correlation(args.assets, args.data_dir, args.granularity, args.start, args.end, args.interval, args.n, args.component, args.index, args.mean_norm)
 
     print(corr.corr_submatrix)
 

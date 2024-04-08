@@ -92,7 +92,7 @@ def get_args():
     )
     correlation_parser.add_argument(
         "--component",
-        help="CSV header label used to calculate log returns.  Default: close",
+        help="CSV header label used to calculate returns.  Default: close",
         default="close"
     )
     correlation_parser.add_argument(
@@ -138,7 +138,7 @@ def get_args():
     )
     coint_parser.add_argument(
         "--component",
-        help="CSV header label used to calculate log returns.  Default: close",
+        help="CSV header label used in test.  Default: close",
         default="close"
     )
     coint_parser.add_argument(
@@ -178,10 +178,62 @@ def get_args():
     )
     adf_parser.add_argument(
         "--component",
-        help="CSV header label used to calculate log returns.  Default: close",
+        help="CSV header label used in test.  Default: close",
         default="close"
     )
     adf_parser.add_argument(
+        "--index",
+        help="CSV header label used to retrieve timestamps.  Default: close_time",
+        default="close_time"
+    )
+
+
+    plot_parser = subparser.add_parser("plot", help="Plots asset data.")
+
+    plot_parser.add_argument(
+        "assets",
+        metavar="assets",
+        help="Assets to plot.",
+        nargs="+"
+    )
+    plot_parser.add_argument(
+        "--start",
+        help="(required) Start date in iso format.  e.g. 2020-12-30",
+        required=True
+    )
+    plot_parser.add_argument(
+        "--end",
+        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
+        required=True
+    )
+    plot_parser.add_argument(
+        "-r",
+        help="Plot mean normalised percent returns.",
+        action="store_true",
+        default=False
+    )
+    plot_parser.add_argument(
+        "--interval",
+        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
+        type=int,
+        default=1
+    )
+    plot_parser.add_argument(
+        "--granularity",
+        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
+        default="1d"
+    )
+    plot_parser.add_argument(
+        "--data_dir",
+        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
+        default=f"{DIR}/spot/monthly/klines"
+    )
+    plot_parser.add_argument(
+        "--component",
+        help="CSV header label used to calculate returns.  Default: close",
+        default="close"
+    )
+    plot_parser.add_argument(
         "--index",
         help="CSV header label used to retrieve timestamps.  Default: close_time",
         default="close_time"
@@ -271,6 +323,20 @@ def combine_by_component(df_dict, start, end, component="close", index="close_ti
 
 
 
+
+def percent_returns(df, interval):
+    returns_df = ((df / df.shift(interval)) - 1) * 100
+    return returns_df
+
+
+
+
+def log_returns(df, interval):
+    returns = np.log(df) - np.log(df.shift(interval))
+    return returns
+
+
+
 # per sample x: (x - mean(x)) / std(x)
 def mean_normalise(df):
     normalised_df = (df - df.mean()) /df.std()
@@ -281,10 +347,10 @@ def mean_normalise(df):
 # takes trading pair price dataframes and interval and returns correlation matrix of log returns (or of mean normalised returns if --mean_norm arg is passed)
 def returns_corr(price_df, interval=1, mean_norm=False):
     if mean_norm:
-        returns = price_df - price_df.shift(interval)
-        norm_r_df = mean_normalise(returns)
+        returns_df = percent_returns(price_df, interval)
+        norm_r_df = mean_normalise(returns_df)
     else:
-        norm_r_df = np.log(price_df) - np.log(price_df.shift(interval))
+        norm_r_df = log_returns(price_df, interval)
     corr_matrix = norm_r_df.corr(method="pearson")
 
     corr_matrix = corr_matrix.dropna(axis=0, how="all")
@@ -357,13 +423,14 @@ def correlation(args):
     if not os.path.isdir("output"):
         os.mkdir("output")
 
+    returns_type = "(percent-mean)" if args.mean_norm else "(log)"
     if args.m:
-        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-matrix-{args.start}-to-{args.end}.csv")
+        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{args.start}-to-{args.end}-{returns_type}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-matrix-{args.start}-to-{args.end}-{returns_type}.csv")
 
     if args.l:
-        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{args.start}-to-{args.end}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-list-{args.start}-to-{args.end}.csv")
+        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{args.start}-to-{args.end}-{returns_type}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/corr-list-{args.start}-to-{args.end}-{returns_type}.csv")
     
     if args.p:
         corr.plot_heatmap()
@@ -405,7 +472,39 @@ def adf(args):
     print("p-value: ", result[1])
     print("lag order: ", result[2])
     print("observations: ", result[3])
-    
+
+
+
+
+def plot_asset(args):
+    df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
+    price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+
+    returns_df = percent_returns(price_df, args.interval)
+    norm_r_df = mean_normalise(returns_df)
+
+    # print(price_df)
+    # print(norm_r_df)
+
+    # print("Returns standard deviation: ", returns_df.std(axis=0))
+
+    for asset in list(price_df):
+        sns.relplot(data=price_df, x=price_df.index, y=asset, kind="line")
+        plt.title(f"{asset} price")
+        plt.xticks(rotation="vertical")
+        plt.xticks(price_df.index[::30])
+        plt.xlabel("Date")
+        
+
+        if args.r:
+            sns.relplot(data=norm_r_df, x=norm_r_df.index, y=asset, kind="line")
+            plt.title(f"{asset} mean normalised percent returns")
+            plt.xticks(rotation="vertical")
+            plt.xticks(norm_r_df.index[::30])
+            plt.xlabel("Date")
+
+    plt.show()
+
 
 
 
@@ -420,6 +519,9 @@ def main():
 
     if args.stats_tool == "adf":
         adf(args)
+
+    if args.stats_tool == "plot":
+        plot_asset(args)
 
 
 if __name__ == "__main__":

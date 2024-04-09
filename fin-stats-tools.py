@@ -25,6 +25,7 @@ if HEADER is None:
 def get_args():
     parser = argparse.ArgumentParser(description="Statistics tools for finance.")
     subparser = parser.add_subparsers(dest="stats_tool", required=True, help="stats tool")
+    # TODO: add args to parent parser and inherit in subparsers
 
     correlation_parser = subparser.add_parser("correlation", help="Finds Pearson correlations between log returns of given assets.")
 
@@ -127,6 +128,11 @@ def get_args():
         default=1
     )
     coint_parser.add_argument(
+        "--log",
+        help="Perform Johansen test on log price series.  Default: True",
+        default=True
+    )
+    coint_parser.add_argument(
         "--granularity",
         help="Granularity of k-line data.  e.g. 1d (default: 1d)",
         default="1d"
@@ -149,7 +155,7 @@ def get_args():
 
 
     adf_parser = subparser.add_parser("adf", help="Performs augmented Dickey-Fuller test on given asset price series.")
-
+    # adf is supposed to be performed on stationary series derived from cointegrated assets (such as spread) as an additional test, change argument to {data} instead of {asset}
     adf_parser.add_argument(
         "asset",
         metavar="asset",
@@ -208,7 +214,19 @@ def get_args():
     )
     plot_parser.add_argument(
         "-r",
-        help="Plot mean normalised percent returns.",
+        help="Plot returns and mean normalised percent returns.",
+        action="store_true",
+        default=False
+    )
+    plot_parser.add_argument(
+        "-s",
+        help="Plots spread between first two assets passed to {assets} argument.",
+        action="store_true", 
+        default=False
+    )
+    plot_parser.add_argument(
+        "--save",
+        help="Save returns and/or spread to CSV.  Save location: {output/returns} or {output/spread}. Default: False.",
         action="store_true",
         default=False
     )
@@ -238,6 +256,9 @@ def get_args():
         help="CSV header label used to retrieve timestamps.  Default: close_time",
         default="close_time"
     )
+
+
+    pca_parser = subparser.add_parser("pca", help="Perform principle component analysis.")
     
 
     return parser.parse_args()
@@ -442,6 +463,9 @@ def cointegration(args):
     df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
 
+    if args.log:
+        price_df = price_df.apply(np.log)
+
     lag_diff = args.l
     result = vecm.coint_johansen(price_df, 0, lag_diff)
 
@@ -476,20 +500,7 @@ def adf(args):
 
 
 
-def plot_asset(args):
-    df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
-    price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
-
-    returns_df = percent_returns(price_df, args.interval)
-    norm_r_df = mean_normalise(returns_df)
-
-    print("price:\n", price_df)
-    if args.r:
-        print("returns:\n", returns_df)
-        print("normalised returns:\n", norm_r_df)
-
-    # print("Returns standard deviation: ", returns_df.std(axis=0))
-
+def plot_default(price_df, returns_df, norm_r_df, r):
     for asset in list(price_df):
         sns.relplot(data=price_df, x=price_df.index, y=asset, kind="line")
         plt.title(f"{asset} price")
@@ -498,7 +509,7 @@ def plot_asset(args):
         plt.xlabel("Date")
         
 
-        if args.r:
+        if r:
             sns.relplot(data=returns_df, x=returns_df.index, y=asset, kind="line")
             plt.title(f"{asset} absolute percent returns")
             plt.xticks(rotation="vertical")
@@ -512,6 +523,47 @@ def plot_asset(args):
             plt.xlabel("Date")
 
     plt.show()
+
+
+
+
+def plot_spread(price_df):
+    # normalise prices
+    # calculate and plot spread
+
+    return
+
+
+
+
+def plot_asset(args):
+    df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
+    price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+
+    returns_df = percent_returns(price_df, args.interval)
+    norm_r_df = mean_normalise(returns_df)
+
+    print("price:\n", price_df)
+    if args.r:
+        print("returns:\n", returns_df)
+        print("normalised returns:\n", norm_r_df)
+        print("Returns standard deviation: ", returns_df.std(axis=0))
+
+    if not args.s:
+        plot_default(price_df, returns_df, norm_r_df, args.r)
+
+    elif args.s and price_df.shape[1] >= 2:
+        plot_spread(price_df)
+    
+    else:
+        print("cannot plot spread: only 1 asset provided")
+        plot_default(price_df, returns_df, norm_r_df, args.r)
+
+
+
+
+def pca(args):
+    return
 
 
 

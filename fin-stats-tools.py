@@ -483,8 +483,10 @@ def plot_asset(args):
     returns_df = percent_returns(price_df, args.interval)
     norm_r_df = mean_normalise(returns_df)
 
-    # print(price_df)
-    # print(norm_r_df)
+    print("price:\n", price_df)
+    if args.r:
+        print("returns:\n", returns_df)
+        print("normalised returns:\n", norm_r_df)
 
     # print("Returns standard deviation: ", returns_df.std(axis=0))
 
@@ -497,6 +499,12 @@ def plot_asset(args):
         
 
         if args.r:
+            sns.relplot(data=returns_df, x=returns_df.index, y=asset, kind="line")
+            plt.title(f"{asset} absolute percent returns")
+            plt.xticks(rotation="vertical")
+            plt.xticks(returns_df.index[::30])
+            plt.xlabel("Date")
+            
             sns.relplot(data=norm_r_df, x=norm_r_df.index, y=asset, kind="line")
             plt.title(f"{asset} mean normalised percent returns")
             plt.xticks(rotation="vertical")
@@ -530,4 +538,4 @@ if __name__ == "__main__":
 
 
 
-# TODO: implement async file io (way too much effort, pandas read_csv is not asynchronous)
+# TODO: implement async file io (way too much effort, pandas read_csv is not asynchronous, would have to unload csvs with csv lib ? or some async file io lib)

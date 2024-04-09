@@ -481,7 +481,7 @@ def cointegration(args):
 
 
 
-
+# SHOULD BE USED TO VERIFY STATIONARITY OF SERIES, NOT BE USED ON PRICE, FIX
 def adf(args):
     df_dict = to_dfs(args.asset, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
@@ -524,7 +524,7 @@ def plot_default(price_df, returns_df, norm_r_df, r):
 
 def plot_spread(price_df):
     # normalise prices
-    # calculate and plot spread
+    # calculate and plot spread (use OLS?)
 
     return
 
@@ -553,7 +553,10 @@ def plot_asset(args):
         plot_default(price_df, returns_df, norm_r_df, args.r)
 
     if args.save:
-        pass
+        if args.r:
+            returns_df.to_csv(f"{DIR}/output/returns/returns-{price_df.columns}-{args.start}-to-{args.end}.csv", compression=None)
+            norm_r_df.to_csv(f"{DIR}/output/returns/normalised_returns-{norm_r_df.columns}-{args.start}-to-{args.end}.csv", compression=None)
+
 
     plt.show()
 

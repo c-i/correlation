@@ -441,17 +441,14 @@ def correlation(args):
 
     print(corr.corr_submatrix)
 
-    if not os.path.isdir("output"):
-        os.mkdir("output")
-
     returns_type = "(percent-mean)" if args.mean_norm else "(log)"
     if args.m:
-        corr.corr_matrix.to_csv(f"{DIR}/output/corr-matrix-{args.start}-to-{args.end}-{returns_type}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-matrix-{args.start}-to-{args.end}-{returns_type}.csv")
+        corr.corr_matrix.to_csv(f"{DIR}/output/correlation/corr-matrix-{args.start}-to-{args.end}-{returns_type}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/correlation/corr-matrix-{args.start}-to-{args.end}-{returns_type}.csv")
 
     if args.l:
-        corr.corr_s.to_csv(f"{DIR}/output/corr-list-{args.start}-to-{args.end}-{returns_type}.csv", compression=None)
-        print(f"saved csv to {DIR}/output/corr-list-{args.start}-to-{args.end}-{returns_type}.csv")
+        corr.corr_s.to_csv(f"{DIR}/output/correlation/corr-list-{args.start}-to-{args.end}-{returns_type}.csv", compression=None)
+        print(f"saved csv to {DIR}/output/correlation/corr-list-{args.start}-to-{args.end}-{returns_type}.csv")
     
     if args.p:
         corr.plot_heatmap()
@@ -522,8 +519,6 @@ def plot_default(price_df, returns_df, norm_r_df, r):
             plt.xticks(norm_r_df.index[::30])
             plt.xlabel("Date")
 
-    plt.show()
-
 
 
 
@@ -551,13 +546,16 @@ def plot_asset(args):
 
     if not args.s:
         plot_default(price_df, returns_df, norm_r_df, args.r)
-
     elif args.s and price_df.shape[1] >= 2:
         plot_spread(price_df)
-    
     else:
         print("cannot plot spread: only 1 asset provided")
         plot_default(price_df, returns_df, norm_r_df, args.r)
+
+    if args.save:
+        pass
+
+    plt.show()
 
 
 
@@ -569,6 +567,19 @@ def pca(args):
 
 
 def main():
+    if not os.path.isdir("output"):
+        os.mkdir("output")
+
+    if not os.path.isdir("output/returns"):
+        os.mkdir("output/returns")
+
+    if not os.path.isdir("output/spread"):
+        os.mkdir("output/spread")
+
+    if not os.path.isdir("output/correlation"):
+        os.mkdir("output/correlation")
+
+
     args = get_args() 
 
     if args.stats_tool == "correlation":

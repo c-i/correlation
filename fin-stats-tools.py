@@ -230,6 +230,12 @@ def get_args():
         action="store_true",
         default=False
     )
+    # change later to default to calculating gamma/beta term for cointegrated series ?
+    plot_parser.add_argument(
+        "--abs",
+        help="Calculate and plot absolute spread of log prices.  Default: True",
+        default=True
+    )
     plot_parser.add_argument(
         "--interval",
         help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
@@ -522,11 +528,22 @@ def plot_default(price_df, returns_df, norm_r_df, r):
 
 
 
-def plot_spread(price_df):
+def plot_spread(price_df, abs):
     # normalise prices
     # calculate and plot spread (use OLS?)
+    assets = price_df.columns
 
-    return
+    if abs:
+        spread = np.log(price_df[assets[0]]) - np.log(price_df[assets[1]])
+        spread.rename("abs")
+
+        sns.relplot(data=spread, kind="line")
+        plt.title(f"{assets[0]} {assets[1]} log price absolute spread")
+        plt.xticks(rotation="vertical")
+        plt.xticks(price_df.index[::30])
+        plt.xlabel("Date")
+
+    return spread
 
 
 
@@ -544,11 +561,11 @@ def plot_asset(args):
         print("normalised returns:\n", norm_r_df)
         print("Returns standard deviation: ", returns_df.std(axis=0))
 
-    if not args.s:
-        plot_default(price_df, returns_df, norm_r_df, args.r)
-    elif args.s and price_df.shape[1] >= 2:
-        plot_spread(price_df)
-    else:
+    plot_default(price_df, returns_df, norm_r_df, args.r)
+
+    if args.s and price_df.shape[1] >= 2:
+        spread = plot_spread(price_df, args.abs)
+    if args.s and price_df.shape[1] == 1:
         print("cannot plot spread: only 1 asset provided")
         plot_default(price_df, returns_df, norm_r_df, args.r)
 
@@ -557,6 +574,8 @@ def plot_asset(args):
             returns_df.to_csv(f"{DIR}/output/returns/returns-{price_df.columns}-{args.start}-to-{args.end}.csv", compression=None)
             norm_r_df.to_csv(f"{DIR}/output/returns/normalised_returns-{norm_r_df.columns}-{args.start}-to-{args.end}.csv", compression=None)
 
+        if args.s:
+            spread.to_csv(f"{DIR}/output/spread/spread-{price_df.columns}-{args.start}-to-{args.end}-({spread.name}).csv", compression=None)
 
     plt.show()
 

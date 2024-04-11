@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from statsmodels.tsa.vector_ar import vecm
 from statsmodels.tsa import stattools
+from statsmodels.regression import linear_model as lin
+from statsmodels.tools.tools import add_constant
 from datetime import datetime as dt
 from datetime import date as d
 import time
@@ -93,7 +95,7 @@ def get_args():
     )
     correlation_parser.add_argument(
         "--component",
-        help="CSV header label used to calculate returns.  Default: close",
+        help="CSV header label used to retrieve data.  Default: close",
         default="close"
     )
     correlation_parser.add_argument(
@@ -103,8 +105,8 @@ def get_args():
     )
 
 
-    coint_parser = subparser.add_parser("cointegration", help="Performs Johansen cointegration test on price series of given assets.")
-    
+    coint_parser = subparser.add_parser("johansen", help="Performs Johansen cointegration test on price series of given assets.")
+
     coint_parser.add_argument(
         "assets",
         metavar="assets",
@@ -144,7 +146,7 @@ def get_args():
     )
     coint_parser.add_argument(
         "--component",
-        help="CSV header label used in test.  Default: close",
+        help="CSV header label used to retrieve data.  Default: close",
         default="close"
     )
     coint_parser.add_argument(
@@ -154,13 +156,13 @@ def get_args():
     )
 
 
-    adf_parser = subparser.add_parser("adf", help="Performs augmented Dickey-Fuller test on given asset price series.")
-    # adf is supposed to be performed on stationary series derived from cointegrated assets (such as spread) as an additional test, change argument to {data} instead of {asset}
+    adf_parser = subparser.add_parser("adf", help="Performs augmented Dickey-Fuller test on spread between asset prices.")
+
     adf_parser.add_argument(
-        "asset",
-        metavar="asset",
-        help="Asset to perform the augmented Dickey-Fuller test on.",
-        nargs=1
+        "assets",
+        metavar="assets",
+        help="Pair of assets used to calculate spread and perform the augmented Dickey-Fuller test on.",
+        nargs=2
     )
     adf_parser.add_argument(
         "--start",
@@ -171,6 +173,12 @@ def get_args():
         "--end",
         help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
         required=True
+    )
+    adf_parser.add_argument(
+        "--beta",
+        help="(required) (int) Beta term used to calculate spread.  Applied to second provided {asset} argument, ie first asset is dependent var and second is independent.  Default: 1",
+        type=float,
+        default=1
     )
     adf_parser.add_argument(
         "--granularity",
@@ -184,7 +192,7 @@ def get_args():
     )
     adf_parser.add_argument(
         "--component",
-        help="CSV header label used in test.  Default: close",
+        help="CSV header label used to retrieve data.  Default: close",
         default="close"
     )
     adf_parser.add_argument(
@@ -219,9 +227,15 @@ def get_args():
         default=False
     )
     plot_parser.add_argument(
-        "-s",
+        "-sp",
         help="Plots spread between first two assets passed to {assets} argument.",
         action="store_true", 
+        default=False
+    )
+    plot_parser.add_argument(
+        "-sc",
+        help="Plots scatterplot between first two assets passed to {assets} argument.",
+        action="store_true",
         default=False
     )
     plot_parser.add_argument(
@@ -230,11 +244,11 @@ def get_args():
         action="store_true",
         default=False
     )
-    # change later to default to calculating gamma/beta term for cointegrated series ?
     plot_parser.add_argument(
-        "--abs",
-        help="Calculate and plot absolute spread of log prices.  Default: True",
-        default=True
+        "--beta",
+        help="(int) Beta term used to calculate spread between cointegrated series.  Default: 1",
+        type=float,
+        default=1
     )
     plot_parser.add_argument(
         "--interval",
@@ -254,10 +268,56 @@ def get_args():
     )
     plot_parser.add_argument(
         "--component",
-        help="CSV header label used to calculate returns.  Default: close",
+        help="CSV header label used to retrieve data.  Default: close",
         default="close"
     )
     plot_parser.add_argument(
+        "--index",
+        help="CSV header label used to retrieve timestamps.  Default: close_time",
+        default="close_time"
+    )
+
+
+    ols_parser = subparser.add_parser("ols", help="Perform ordinary least squares regression on given asset price series.")
+
+    ols_parser.add_argument(
+        "assets",
+        metavar="assets",
+        help="Assets to perform OLS regression on. First asset provided is the dependent variable and the second is the independent variable.",
+        nargs=2
+    )
+    ols_parser.add_argument(
+        "--start",
+        help="(required) Start date in iso format.  e.g. 2020-12-30",
+        required=True
+    )
+    ols_parser.add_argument(
+        "--end",
+        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
+        required=True
+    )
+    ols_parser.add_argument(
+        "--interval",
+        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
+        type=int,
+        default=1
+    )
+    ols_parser.add_argument(
+        "--granularity",
+        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
+        default="1d"
+    )
+    ols_parser.add_argument(
+        "--data_dir",
+        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
+        default=f"{DIR}/spot/monthly/klines"
+    )
+    ols_parser.add_argument(
+        "--component",
+        help="CSV header label used to retrieve data.  Default: close",
+        default="close"
+    )
+    ols_parser.add_argument(
         "--index",
         help="CSV header label used to retrieve timestamps.  Default: close_time",
         default="close_time"
@@ -371,6 +431,21 @@ def mean_normalise(df):
 
 
 
+
+def ols(price_df):
+    assets = price_df.columns
+
+    y = price_df[assets[0]]
+    x = price_df[assets[1]]
+    x = add_constant(x)
+
+    model = lin.OLS(y, x)
+    results = model.fit()
+
+    return results
+
+
+
 # takes trading pair price dataframes and interval and returns correlation matrix of log returns (or of mean normalised returns if --mean_norm arg is passed)
 def returns_corr(price_df, interval=1, mean_norm=False):
     if mean_norm:
@@ -462,7 +537,7 @@ def correlation(args):
 
 
 
-def cointegration(args):
+def johansen(args):
     df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
 
@@ -487,18 +562,30 @@ def cointegration(args):
 
 
 
-# SHOULD BE USED TO VERIFY STATIONARITY OF SERIES, NOT BE USED ON PRICE, FIX
+
 def adf(args):
-    df_dict = to_dfs(args.asset, dir=args.data_dir, granularity=args.granularity)
+    df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+    assets = price_df.columns
 
-    result = stattools.adfuller(price_df, maxlag=None)
+    spread = np.log(price_df[assets[0]]) - (args.beta * np.log(price_df[assets[1]]))
 
-    print("Augmented Dickey-Fuller: ", result[0])
-    print("critical values: ", result[4])
-    print("p-value: ", result[1])
-    print("lag order: ", result[2])
-    print("observations: ", result[3])
+    result = stattools.adfuller(spread, maxlag=None)
+
+    print("Results of Dickey-Fuller Test:")
+    dfoutput = pd.Series(
+        result[0:4],
+        index=[
+            "Test Statistic",
+            "p-value",
+            "#Lags Used",
+            "Number of Observations Used",
+        ],
+    )
+    for key, value in result[4].items():
+        dfoutput["Critical Value (%s)" % key] = value
+    
+    print(dfoutput)
 
 
 
@@ -528,22 +615,32 @@ def plot_default(price_df, returns_df, norm_r_df, r):
 
 
 
-def plot_spread(price_df, abs):
+def plot_spread(price_df, beta):
     # normalise prices
     # calculate and plot spread (use OLS?)
     assets = price_df.columns
 
-    if abs:
-        spread = np.log(price_df[assets[0]]) - np.log(price_df[assets[1]])
-        spread.rename("abs")
+    spread = np.log(price_df[assets[0]]) - (beta * np.log(price_df[assets[1]])) 
+    spread.rename(str(beta))
 
-        sns.relplot(data=spread, kind="line")
-        plt.title(f"{assets[0]} {assets[1]} log price absolute spread")
-        plt.xticks(rotation="vertical")
-        plt.xticks(price_df.index[::30])
-        plt.xlabel("Date")
+    sns.relplot(data=spread, kind="line")
+    plt.title(f"{assets[0]} {assets[1]} log price spread (beta= {beta})")
+    plt.xticks(rotation="vertical")
+    plt.xticks(price_df.index[::30])
+    plt.xlabel("Date")
 
     return spread
+
+
+
+
+def plot_scatter(price_df):
+    assets = price_df.columns
+
+    plt.figure()
+    sns.scatterplot(data=price_df, x=price_df[assets[1]], y=price_df[assets[0]])
+    plt.title(f"{assets[0]} {assets[1]} scatterplot")
+    plt.xticks(rotation="vertical")
 
 
 
@@ -563,9 +660,15 @@ def plot_asset(args):
 
     plot_default(price_df, returns_df, norm_r_df, args.r)
 
-    if args.s and price_df.shape[1] >= 2:
-        spread = plot_spread(price_df, args.abs)
-    if args.s and price_df.shape[1] == 1:
+    if args.sp and price_df.shape[1] >= 2:
+        spread = plot_spread(price_df, args.beta)
+    if args.sp and price_df.shape[1] == 1:
+        print("cannot plot spread: only 1 asset provided")
+        plot_default(price_df, returns_df, norm_r_df, args.r)
+
+    if args.sc and price_df.shape[1] >= 2:
+        plot_scatter(price_df)
+    if args.sc and price_df.shape[1] == 1:
         print("cannot plot spread: only 1 asset provided")
         plot_default(price_df, returns_df, norm_r_df, args.r)
 
@@ -575,7 +678,7 @@ def plot_asset(args):
             norm_r_df.to_csv(f"{DIR}/output/returns/normalised_returns-{norm_r_df.columns}-{args.start}-to-{args.end}.csv", compression=None)
 
         if args.s:
-            spread.to_csv(f"{DIR}/output/spread/spread-{price_df.columns}-{args.start}-to-{args.end}-({spread.name}).csv", compression=None)
+            spread.to_csv(f"{DIR}/output/spread/spread-{price_df.columns}-{args.start}-to-{args.end}-(beta{spread.name}).csv", compression=None)
 
     plt.show()
 
@@ -607,14 +710,21 @@ def main():
     if args.stats_tool == "correlation":
         correlation(args)
 
-    if args.stats_tool == "cointegration":
-        cointegration(args)
+    if args.stats_tool == "johansen":
+        johansen(args)
 
     if args.stats_tool == "adf":
         adf(args)
 
     if args.stats_tool == "plot":
         plot_asset(args)
+
+    if args.stats_tool == "ols":
+        df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
+        price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+
+        result = ols(price_df)
+        print(result.summary())
 
 
 if __name__ == "__main__":

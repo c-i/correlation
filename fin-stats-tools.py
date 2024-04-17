@@ -645,7 +645,7 @@ def plot_scatter(price_df):
 
 
 
-def plot_asset(args):
+def plot_assets(args):
     df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
 
@@ -685,6 +685,28 @@ def plot_asset(args):
 
 
 
+def eigenportfolio(price_df, corr_matrix=None, interval=1):
+    if corr_matrix is None:
+        corr_matrix = returns_corr(price_df, interval, mean_norm=True)
+
+    returns_corr = percent_returns(price_df, interval)
+
+    np_eigvals, np_eigvecs = np.linalg.eig(corr_matrix)
+    eig_dict = dict(zip(np_eigvals.tolist(), np_eigvecs.tolist()))
+    eig_dict = dict(sorted(eig_dict.items(), reverse=True))
+    print(np_eigvecs.shape)
+
+    Q_weights = []
+    std_series = price_df.std()
+    
+    
+
+
+    return
+
+
+
+
 def pca(args):
     return
 
@@ -717,7 +739,7 @@ def main():
         adf(args)
 
     if args.stats_tool == "plot":
-        plot_asset(args)
+        plot_assets(args)
 
     if args.stats_tool == "ols":
         df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)

@@ -27,25 +27,53 @@ if HEADER is None:
 def get_args():
     parser = argparse.ArgumentParser(description="Statistics tools for finance.")
     subparser = parser.add_subparsers(dest="stats_tool", required=True, help="stats tool")
-    # TODO: add args to parent parser and inherit in subparsers
 
-    correlation_parser = subparser.add_parser("correlation", help="Finds Pearson correlations between log returns of given assets.")
+    global_parser = subparser.add_parser("global_settings", add_help=False)
+    global_parser.add_argument(
+        "--start",
+        help="(required) Start date in iso format.  e.g. 2020-12-30",
+        required=True
+    )
+    global_parser.add_argument(
+        "--end",
+        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
+        required=True
+    )
+    global_parser.add_argument(
+        "--interval",
+        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
+        type=int,
+        default=1
+    )
+    global_parser.add_argument(
+        "--granularity",
+        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
+        default="1d"
+    )
+    global_parser.add_argument(
+        "--data_dir",
+        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
+        default=f"{DIR}/spot/monthly/klines"
+    )
+    global_parser.add_argument(
+        "--component",
+        help="CSV header label used to retrieve data.  Default: close",
+        default="close"
+    )
+    global_parser.add_argument(
+        "--index",
+        help="CSV header label used to retrieve timestamps.  Default: close_time",
+        default="close_time"
+    )
+
+
+    correlation_parser = subparser.add_parser("correlation", help="Finds Pearson correlations between log returns of given assets.", parents=[global_parser])
 
     correlation_parser.add_argument(
         "assets",
         metavar="assets",
         help="USDT denominated trading pairs.  e.g. BTCUSDT ETHUSDT (if {all} is provided as the first argument all assets will be used)",
         nargs="+"
-    )
-    correlation_parser.add_argument(
-        "--start",
-        help="(required) Start date in iso format.  e.g. 2020-12-30",
-        required=True
-    )
-    correlation_parser.add_argument(
-        "--end",
-        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
-        required=True
     )
     correlation_parser.add_argument(
         "-p",
@@ -77,51 +105,15 @@ def get_args():
         action="store_true",
         default=False
     )
-    correlation_parser.add_argument(
-        "--interval",
-        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
-        type=int,
-        default=1
-    )
-    correlation_parser.add_argument(
-        "--granularity",
-        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
-        default="1d"
-    )
-    correlation_parser.add_argument(
-        "--data_dir",
-        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
-        default=f"{DIR}/spot/monthly/klines"
-    )
-    correlation_parser.add_argument(
-        "--component",
-        help="CSV header label used to retrieve data.  Default: close",
-        default="close"
-    )
-    correlation_parser.add_argument(
-        "--index",
-        help="CSV header label used to retrieve timestamps.  Default: close_time",
-        default="close_time"
-    )
 
 
-    coint_parser = subparser.add_parser("johansen", help="Performs Johansen cointegration test on price series of given assets.")
+    coint_parser = subparser.add_parser("johansen", help="Performs Johansen cointegration test on price series of given assets.", parents=[global_parser])
 
     coint_parser.add_argument(
         "assets",
         metavar="assets",
         help="Assets to perform the Johansen test on.",
         nargs="+"
-    )
-    coint_parser.add_argument(
-        "--start",
-        help="(required) Start date in iso format.  e.g. 2020-12-30",
-        required=True
-    )
-    coint_parser.add_argument(
-        "--end",
-        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
-        required=True
     )
     coint_parser.add_argument(
         "-l",
@@ -134,29 +126,9 @@ def get_args():
         help="Perform Johansen test on log price series.  Default: True",
         default=True
     )
-    coint_parser.add_argument(
-        "--granularity",
-        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
-        default="1d"
-    )
-    coint_parser.add_argument(
-        "--data_dir",
-        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
-        default=f"{DIR}/spot/monthly/klines"
-    )
-    coint_parser.add_argument(
-        "--component",
-        help="CSV header label used to retrieve data.  Default: close",
-        default="close"
-    )
-    coint_parser.add_argument(
-        "--index",
-        help="CSV header label used to retrieve timestamps.  Default: close_time",
-        default="close_time"
-    )
 
 
-    adf_parser = subparser.add_parser("adf", help="Performs augmented Dickey-Fuller test on spread between asset prices.")
+    adf_parser = subparser.add_parser("adf", help="Performs augmented Dickey-Fuller test on spread between asset prices.", parents=[global_parser])
 
     adf_parser.add_argument(
         "assets",
@@ -165,60 +137,20 @@ def get_args():
         nargs=2
     )
     adf_parser.add_argument(
-        "--start",
-        help="(required) Start date in iso format.  e.g. 2020-12-30",
-        required=True
-    )
-    adf_parser.add_argument(
-        "--end",
-        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
-        required=True
-    )
-    adf_parser.add_argument(
         "--beta",
         help="(required) (int) Beta term used to calculate spread.  Applied to second provided {asset} argument, ie first asset is dependent var and second is independent.  Default: 1",
         type=float,
         default=1
     )
-    adf_parser.add_argument(
-        "--granularity",
-        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
-        default="1d"
-    )
-    adf_parser.add_argument(
-        "--data_dir",
-        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
-        default=f"{DIR}/spot/monthly/klines"
-    )
-    adf_parser.add_argument(
-        "--component",
-        help="CSV header label used to retrieve data.  Default: close",
-        default="close"
-    )
-    adf_parser.add_argument(
-        "--index",
-        help="CSV header label used to retrieve timestamps.  Default: close_time",
-        default="close_time"
-    )
 
 
-    plot_parser = subparser.add_parser("plot", help="Plots asset data.")
+    plot_parser = subparser.add_parser("plot", help="Plots asset data.", parents=[global_parser])
 
     plot_parser.add_argument(
         "assets",
         metavar="assets",
         help="Assets to plot.",
         nargs="+"
-    )
-    plot_parser.add_argument(
-        "--start",
-        help="(required) Start date in iso format.  e.g. 2020-12-30",
-        required=True
-    )
-    plot_parser.add_argument(
-        "--end",
-        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
-        required=True
     )
     plot_parser.add_argument(
         "-r",
@@ -250,35 +182,9 @@ def get_args():
         type=float,
         default=1
     )
-    plot_parser.add_argument(
-        "--interval",
-        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
-        type=int,
-        default=1
-    )
-    plot_parser.add_argument(
-        "--granularity",
-        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
-        default="1d"
-    )
-    plot_parser.add_argument(
-        "--data_dir",
-        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
-        default=f"{DIR}/spot/monthly/klines"
-    )
-    plot_parser.add_argument(
-        "--component",
-        help="CSV header label used to retrieve data.  Default: close",
-        default="close"
-    )
-    plot_parser.add_argument(
-        "--index",
-        help="CSV header label used to retrieve timestamps.  Default: close_time",
-        default="close_time"
-    )
 
 
-    ols_parser = subparser.add_parser("ols", help="Perform ordinary least squares regression on given asset price series.")
+    ols_parser = subparser.add_parser("ols", help="Perform ordinary least squares regression on given asset price series.", parents=[global_parser])
 
     ols_parser.add_argument(
         "assets",
@@ -286,46 +192,17 @@ def get_args():
         help="Assets to perform OLS regression on. First asset provided is the dependent variable and the second is the independent variable.",
         nargs=2
     )
-    ols_parser.add_argument(
-        "--start",
-        help="(required) Start date in iso format.  e.g. 2020-12-30",
-        required=True
-    )
-    ols_parser.add_argument(
-        "--end",
-        help="(required) End date in iso format (up to the end of last month).  e.g. 2021-12-30",
-        required=True
-    )
-    ols_parser.add_argument(
-        "--interval",
-        help="(int) Interval for which to calculate returns as a multiple of granularity. e.g. 1 (an interval of 1 with granularity 1d would calculate returns once per day).  Default: 1",
-        type=int,
-        default=1
-    )
-    ols_parser.add_argument(
-        "--granularity",
-        help="Granularity of k-line data.  e.g. 1d (default: 1d)",
-        default="1d"
-    )
-    ols_parser.add_argument(
-        "--data_dir",
-        help=f"Directory where k-line data is stored.  Default: {DIR}/spot/monthly/klines",
-        default=f"{DIR}/spot/monthly/klines"
-    )
-    ols_parser.add_argument(
-        "--component",
-        help="CSV header label used to retrieve data.  Default: close",
-        default="close"
-    )
-    ols_parser.add_argument(
-        "--index",
-        help="CSV header label used to retrieve timestamps.  Default: close_time",
-        default="close_time"
-    )
 
 
-    pca_parser = subparser.add_parser("pca", help="Perform principle component analysis.")
-    
+    pca_parser = subparser.add_parser("pca", help="Perform principle component analysis.", parents=[global_parser])
+
+    pca_parser.add_argument(
+        "assets",
+        metavar="assets",
+        help="...",
+        nargs="+"
+    )
+
 
     return parser.parse_args()
 
@@ -689,26 +566,27 @@ def eigenportfolio(price_df, corr_matrix=None, interval=1):
     if corr_matrix is None:
         corr_matrix = returns_corr(price_df, interval, mean_norm=True)
 
-    returns_corr = percent_returns(price_df, interval)
+    returns_df = percent_returns(price_df, interval)
 
     np_eigvals, np_eigvecs = np.linalg.eig(corr_matrix)
     eig_dict = dict(zip(np_eigvals.tolist(), np_eigvecs.tolist()))
     eig_dict = dict(sorted(eig_dict.items(), reverse=True))
-    print(np_eigvecs.shape)
+
+    print(price_df)
+    print(np_eigvecs)
+    print(np_eigvals)
 
     Q_weights = []
     std_series = price_df.std()
-    
-    
-
-
-    return
 
 
 
 
 def pca(args):
-    return
+    df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
+    price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+
+    eigenportfolio(price_df)
 
 
 
@@ -747,6 +625,9 @@ def main():
 
         result = ols(price_df)
         print(result.summary())
+
+    if args.stats_tool == "pca":
+        pca(args)
 
 
 if __name__ == "__main__":

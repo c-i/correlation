@@ -194,9 +194,9 @@ def get_args():
     )
 
 
-    pca_parser = subparser.add_parser("pca", help="Perform principle component analysis.", parents=[global_parser])
+    eigen_parser = subparser.add_parser("eigen", help="Construct eigenportfolio from assets.", parents=[global_parser])
 
-    pca_parser.add_argument(
+    eigen_parser.add_argument(
         "assets",
         metavar="assets",
         help="...",
@@ -561,32 +561,50 @@ def plot_assets(args):
 
 
 
-
-def eigenportfolio(price_df, corr_matrix=None, interval=1):
+# Avellaneda, Lee 2008
+def eigenportfolios(price_df, corr_matrix=None, interval=1, var_threshold=0.8, plot=True):
     if corr_matrix is None:
         corr_matrix = returns_corr(price_df, interval, mean_norm=True)
 
     returns_df = percent_returns(price_df, interval)
 
-    np_eigvals, np_eigvecs = np.linalg.eig(corr_matrix)
-    eig_dict = dict(zip(np_eigvals.tolist(), np_eigvecs.tolist()))
+    eigvals, eigvecs = np.linalg.eig(corr_matrix)
+    eig_dict = dict(zip(eigvals.tolist(), eigvecs.tolist()))
     eig_dict = dict(sorted(eig_dict.items(), reverse=True))
 
     print(price_df)
-    print(np_eigvecs)
-    print(np_eigvals)
+    print(eigvecs)
+    print(eigvals)
 
-    Q_weights = []
-    std_series = price_df.std()
+    var_ratios = []
+    eigval_sum = np.sum(eigvals)
+    for value in eigvals:
+        var_ratios.append(value / eigval_sum)
+
+    eigval_df = pd.DataFrame(eigvals, columns=["eigenvalues"])
+
+    if plot:
+        sns.histplot(data=eigval_df, x="eigenvalues", stat="percent")
+
+    eigprt_weights = []
+    std_list = list(price_df.std())
+
+    for vector in eigvecs:
+        Q = []
+        for i, item in enumerate(vector):
+            Q.append(item / std_list[i])
+        
+        eigprt_weights.append(Q)
 
 
 
 
-def pca(args):
+def eigen(args):
     df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
 
-    eigenportfolio(price_df)
+    eigenportfolios(price_df)
+    plt.show()
 
 
 
@@ -626,14 +644,11 @@ def main():
         result = ols(price_df)
         print(result.summary())
 
-    if args.stats_tool == "pca":
-        pca(args)
+    if args.stats_tool == "eigen":
+        eigen(args)
 
 
 if __name__ == "__main__":
     main()
 
 
-
-
-# TODO: implement async file io (way too much effort, pandas read_csv is not asynchronous, would have to unload csvs with csv lib ? or some async file io lib)

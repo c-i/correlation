@@ -149,7 +149,7 @@ def get_args():
     plot_parser.add_argument(
         "assets",
         metavar="assets",
-        help="Assets to plot.",
+        help="Assets to plot. e.g. BTCUSDT ETHUSDT",
         nargs="+"
     )
     plot_parser.add_argument(
@@ -189,18 +189,24 @@ def get_args():
     ols_parser.add_argument(
         "assets",
         metavar="assets",
-        help="Assets to perform OLS regression on. First asset provided is the dependent variable and the second is the independent variable.",
+        help="Assets to perform OLS regression on. First asset provided is the dependent variable and the second is the independent variable. e.g BTCUSDT ETHUSDT",
         nargs=2
     )
 
 
-    eigen_parser = subparser.add_parser("eigen", help="Construct eigenportfolio from assets.", parents=[global_parser])
+    pca_parser = subparser.add_parser("pca", help="Perform PCA to construct eigenportfolios from assets.", parents=[global_parser])
 
-    eigen_parser.add_argument(
+    pca_parser.add_argument(
         "assets",
         metavar="assets",
-        help="...",
+        help="Assets used to calculate correlation matrix and perform PCA.  e.g. BTCUSDT ETHUSDT SOLUSDT.  If {all} is provided as the first asset argument all assets will be used.",
         nargs="+"
+    )
+    pca_parser.add_argument(
+        "-p",
+        help="Plot eigenvalue explained variance histogram and principle eigenportfolio",
+        action="store_true",
+        default=True
     )
 
 
@@ -290,7 +296,7 @@ def combine_by_component(df_dict, start, end, component="close", index="close_ti
 
 def percent_returns(df, interval):
     returns_df = ((df / df.shift(interval)) - 1) * 100
-    return returns_df
+    return returns_df.fillna(0)
 
 
 
@@ -467,22 +473,30 @@ def adf(args):
 
 
 
-def plot_default(price_df, returns_df, norm_r_df, r):
+def plot_price(price_df, title=None):
     for asset in list(price_df):
+        if title is None:
+            title = f"{asset} price"
+
         sns.relplot(data=price_df, x=price_df.index, y=asset, kind="line")
-        plt.title(f"{asset} price")
+        plt.title(title)
         plt.xticks(rotation="vertical")
         plt.xticks(price_df.index[::30])
         plt.xlabel("Date")
         
 
-        if r:
-            sns.relplot(data=returns_df, x=returns_df.index, y=asset, kind="line")
-            plt.title(f"{asset} absolute percent returns")
-            plt.xticks(rotation="vertical")
-            plt.xticks(returns_df.index[::30])
-            plt.xlabel("Date")
-            
+
+
+def plot_returns(returns_df, norm=False, title=None):
+    for asset in list(returns_df):
+        sns.relplot(data=returns_df, x=returns_df.index, y=asset, kind="line")
+        plt.title(f"{asset} absolute percent returns")
+        plt.xticks(rotation="vertical")
+        plt.xticks(returns_df.index[::30])
+        plt.xlabel("Date")
+        
+        if norm:
+            norm_r_df = mean_normalise(returns_df)
             sns.relplot(data=norm_r_df, x=norm_r_df.index, y=asset, kind="line")
             plt.title(f"{asset} mean normalised percent returns")
             plt.xticks(rotation="vertical")
@@ -535,19 +549,22 @@ def plot_assets(args):
         print("normalised returns:\n", norm_r_df)
         print("Returns standard deviation: ", returns_df.std(axis=0))
 
-    plot_default(price_df, returns_df, norm_r_df, args.r)
+    plot_price(price_df)
+
+    if args.r:
+        plot_returns(returns_df, norm=True)
 
     if args.sp and price_df.shape[1] >= 2:
         spread = plot_spread(price_df, args.beta)
     if args.sp and price_df.shape[1] == 1:
         print("cannot plot spread: only 1 asset provided")
-        plot_default(price_df, returns_df, norm_r_df, args.r)
+        plot_price(price_df)
 
     if args.sc and price_df.shape[1] >= 2:
         plot_scatter(price_df)
     if args.sc and price_df.shape[1] == 1:
         print("cannot plot spread: only 1 asset provided")
-        plot_default(price_df, returns_df, norm_r_df, args.r)
+        plot_price(price_df)
 
     if args.save:
         if args.r:
@@ -561,49 +578,77 @@ def plot_assets(args):
 
 
 
+
+def plot_eigenvalues(eigenvalues):
+    var_ratios = []
+    eigval_sum = np.sum(eigenvalues)
+    for value in eigenvalues:
+        var_ratios.append(value / eigval_sum)
+
+    eigval_df = pd.DataFrame(eigenvalues, columns=["eigenvalues"])
+
+    sns.histplot(data=eigval_df, x="eigenvalues", stat="percent")
+
+
+
 # Avellaneda, Lee 2008
-def eigenportfolios(price_df, corr_matrix=None, interval=1, var_threshold=0.8, plot=True):
+def eigenportfolios(price_df, corr_matrix=None, interval=1, plot=False):
     if corr_matrix is None:
         corr_matrix = returns_corr(price_df, interval, mean_norm=True)
 
     returns_df = percent_returns(price_df, interval)
 
     eigvals, eigvecs = np.linalg.eig(corr_matrix)
-    eig_dict = dict(zip(eigvals.tolist(), eigvecs.tolist()))
-    eig_dict = dict(sorted(eig_dict.items(), reverse=True))
-
-    print(price_df)
-    print(eigvecs)
     print(eigvals)
+    print(eigvecs)
+    eigvecs = eigvecs[eigvals.argsort()]
+    eigvals.sort()
+    eigvals = np.flip(eigvals)
+    eigvecs = np.flip(eigvecs, axis=0)
 
-    var_ratios = []
-    eigval_sum = np.sum(eigvals)
-    for value in eigvals:
-        var_ratios.append(value / eigval_sum)
-
-    eigval_df = pd.DataFrame(eigvals, columns=["eigenvalues"])
+    # print(price_df)
+    print("\n\n\n", eigvals)
+    print(eigvecs)
 
     if plot:
-        sns.histplot(data=eigval_df, x="eigenvalues", stat="percent")
+        plot_eigenvalues(eigvals)
 
     eigprt_weights = []
-    std_list = list(price_df.std())
+    std_arr = np.array(returns_df.std())
 
     for vector in eigvecs:
-        Q = []
-        for i, item in enumerate(vector):
-            Q.append(item / std_list[i])
-        
+        Q = vector / std_arr
         eigprt_weights.append(Q)
 
+    return eigprt_weights
 
 
 
-def eigen(args):
+
+def pca(args):
     df_dict = to_dfs(args.assets, dir=args.data_dir, granularity=args.granularity)
     price_df = combine_by_component(df_dict, args.start, args.end, component=args.component, index=args.index)
+    returns_df = percent_returns(price_df, args.interval)
+    std_arr = np.array(returns_df.std())
 
-    eigenportfolios(price_df)
+    eig_folios = eigenportfolios(price_df, interval=args.interval, plot=args.p)
+    princ_eig = eig_folios[0]
+    princ_eig_returns = []
+
+    for i, row in returns_df.iterrows():
+        F = np.sum((princ_eig / std_arr) * np.array(row))
+        princ_eig_returns.append(F)
+
+    if args.p:
+        eig_returns_df = pd.DataFrame(data=princ_eig_returns, index=returns_df.index, columns=["principle_eigenportfolio_returns"])
+        print(eig_returns_df)
+        plot_returns(eig_returns_df, title="centered principle eigenportfolio returns")
+
+    # probably broken
+        cumulative_eig_returns = np.cumsum(np.array(princ_eig_returns))
+        cum_eig_returns_df = pd.DataFrame(data=cumulative_eig_returns, index=returns_df.index, columns=["cumulative_returns"])
+        plot_price(cum_eig_returns_df, title="cumulative principle eigenportfolio returns")
+    
     plt.show()
 
 
@@ -644,8 +689,8 @@ def main():
         result = ols(price_df)
         print(result.summary())
 
-    if args.stats_tool == "eigen":
-        eigen(args)
+    if args.stats_tool == "pca":
+        pca(args)
 
 
 if __name__ == "__main__":

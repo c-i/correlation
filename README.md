@@ -162,7 +162,7 @@ Johansen Cointegration Test:
       -l L                  Number of lagged differences. Default: 1
       --log LOG             Perform Johansen test on log price series. Default: True
 
-PCA
+Principle Component Analysis
 
     usage: fin-stats-tools.py pca [-h] --start START --end END [--interval INTERVAL] [--granularity GRANULARITY]
                                   [--data_dir DATA_DIR] [--component COMPONENT] [--index INDEX] [-p]
